@@ -33,5 +33,19 @@ module RedmineOpenidConnect
         User.current = User.anonymous
       end
     end
+
+    def session_expiration
+      return super unless OicSession.enabled?
+
+      if session[:user_id] && Rails.application.config.redmine_verify_sessions != false
+        if session_expired? && !try_to_autologin
+          set_localization(User.active.find_by_id(session[:user_id]))
+          self.logged_user = nil
+          flash[:error] = l(:error_session_expired)
+          cookies.delete(autologin_cookie_name)
+          require_login
+        end
+      end
+    end
   end # ApplicationControllerPatch
 end
