@@ -68,7 +68,7 @@ module RedmineOpenidConnect
           return redirect_to oic_local_logout
         end
 
-        oic_session.update_attributes!(authorize_params)
+        oic_session.update!(authorize_params)
 
         # verify id token nonce or reauthorize
         if oic_session.id_token.present?
@@ -87,6 +87,20 @@ module RedmineOpenidConnect
           return invalid_credentials
         end
 
+        logger.warn "User Logged : "
+        user_info.each do |key, value|
+          logger.warn "#{key} : #{value}"
+        end
+
+        if user_info["email"].nil?
+          debug_str = ""
+          user_info.each do |key, value|
+            debug_str += key.to_s + ' : ' + value + '<br>'
+          end
+          flash.now[:warning] = "email nil : #{debug_str}"
+          return invalid_credentials
+        end
+
         # Check if there's already an existing user
         user = User.find_by_mail(user_info["email"])
 
@@ -102,8 +116,7 @@ module RedmineOpenidConnect
 
           user = User.new
 
-          user.login = user_info["user_name"] || user_info["nickname"] || user_info["preferred_username"]
-
+          user.login = user_info["user_name"] || user_info["nickname"] || user_info["preferred_username"] || user_info["upn"]
           firstname = user_info["given_name"]
           lastname = user_info["family_name"]
 
@@ -113,6 +126,10 @@ module RedmineOpenidConnect
               firstname = parts[0]
               lastname = parts[-1]
             end
+          end
+
+          if user.login.nil?
+            user.login = user_info["email"].split("@").first
           end
 
           attributes = {
@@ -126,7 +143,7 @@ module RedmineOpenidConnect
           user.assign_attributes attributes
 
           if user.save
-            user.update_attribute(:admin, oic_session.admin?)
+            user.update(:admin, oic_session.admin?)
             oic_session.user_id = user.id
             oic_session.save!
             # after user creation just show "My Page" don't redirect to remember
@@ -140,7 +157,7 @@ module RedmineOpenidConnect
             return invalid_credentials
           end
         else
-          user.update_attribute(:admin, oic_session.admin?)
+          # user.update_attribute(:admin, oic_session.admin?)
           oic_session.user_id = user.id
           oic_session.save!
           # redirect back to initial URL
