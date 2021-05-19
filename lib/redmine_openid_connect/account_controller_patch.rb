@@ -88,13 +88,14 @@ module RedmineOpenidConnect
         end
 
         # Check if there's already an existing user
-        user = User.find_by_mail(user_info["email"])
+        username = user_info["user_name"] || user_info["nickname"] || user_info["preferred_username"]
+        user = User.find_by_login(username)
 
         if user.nil?
           if !OicSession.create_user_if_not_exists?
-            flash.now[:warning] ||= l(:oic_cannot_create_user, user_info["email"])
+            flash.now[:warning] ||= l(:oic_cannot_create_user, username)
             
-            logger.warn "Could not create user #{user_info["email"]}, the system is not allowed to create new users through openid"
+            logger.warn "Could not create user #{username}, the system is not allowed to create new users through openid"
             flash.now[:warning] += "The system is not allowed to create new users through openid"
 
             return invalid_credentials
