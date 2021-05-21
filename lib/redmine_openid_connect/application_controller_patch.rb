@@ -42,7 +42,8 @@ module RedmineOpenidConnect
           set_localization(User.active.find_by_id(session[:user_id]))
           self.logged_user = nil
           flash[:error] = l(:error_session_expired)
-          logout_user
+          cookies.delete(autologin_cookie_name)
+          reset_session
           require_login
         end
       end
